@@ -1,6 +1,6 @@
-// main.cc 
-//	Driver code to initialize, selftest, and run the 
-//	operating system kernel.  
+// main.cc
+//	Driver code to initialize, selftest, and run the
+//	operating system kernel.
 //
 // Usage: nachos -d <debugflags> -rs <random seed #>
 //              -s -x <nachos file> -ci <consoleIn> -co <consoleOut>
@@ -28,13 +28,13 @@
 //    -p prints a Nachos file to stdout
 //    -r removes a Nachos file from the file system
 //    -l lists the contents of the Nachos directory
-//    -D prints the contents of the entire file system 
+//    -D prints the contents of the entire file system
 //
 //  Note: the file system flags are not used if the stub filesystem
 //        is being used
 //
 // Copyright (c) 1992-1996 The Regents of the University of California.
-// All rights reserved.  See copyright.h for copyright notice and limitation 
+// All rights reserved.  See copyright.h for copyright notice and limitation
 // of liability and disclaimer of warranty provisions.
 
 #define MAIN
@@ -68,11 +68,11 @@ Debug *debug;
 //	Delete kernel data structures; called when user hits "ctl-C".
 //----------------------------------------------------------------------
 
-static void 
-Cleanup(int x) 
-{     
+static void
+Cleanup(int x)
+{
     cerr << "\nCleaning up after signal " << x << "\n";
-    delete kernel; 
+    delete kernel;
 }
 
 //-------------------------------------------------------------------
@@ -98,13 +98,13 @@ Copy(char *from, char *to)
     char *buffer;
 
 // Open UNIX file
-    if ((fd = OpenForReadWrite(from,FALSE)) < 0) {       
+    if ((fd = OpenForReadWrite(from,FALSE)) < 0) {
         printf("Copy: couldn't open input file %s\n", from);
         return;
     }
 
 // Figure out length of UNIX file
-    Lseek(fd, 0, 2);            
+    Lseek(fd, 0, 2);
     fileLength = Tell(fd);
     Lseek(fd, 0, 0);
 
@@ -115,14 +115,14 @@ Copy(char *from, char *to)
         Close(fd);
         return;
     }
-    
+
     openFile = kernel->fileSystem->Open(to);
     ASSERT(openFile != NULL);
-    
+
 // Copy the data in TransferSize chunks
     buffer = new char[TransferSize];
     while ((amountRead=ReadPartial(fd, buffer, sizeof(char)*TransferSize)) > 0)
-        openFile->Write(buffer, amountRead);    
+        openFile->Write(buffer, amountRead);
     delete [] buffer;
 
 // Close the UNIX and the Nachos files
@@ -140,7 +140,7 @@ Copy(char *from, char *to)
 void
 Print(char *name)
 {
-    OpenFile *openFile;    
+    OpenFile *openFile;
     int i, amountRead;
     char *buffer;
 
@@ -148,7 +148,7 @@ Print(char *name)
         printf("Print: unable to open file %s\n", name);
         return;
     }
-    
+
     buffer = new char[TransferSize];
     while ((amountRead = openFile->Read(buffer, TransferSize)) > 0)
         for (i = 0; i < amountRead; i++)
@@ -163,14 +163,14 @@ Print(char *name)
 
 //----------------------------------------------------------------------
 // main
-// 	Bootstrap the operating system kernel.  
-//	
+// 	Bootstrap the operating system kernel.
+//
 //	Initialize kernel data structures
 //	Call some test routines
 //	Call "Run" to start an initial user program running
 //
 //	"argc" is the number of command line arguments (including the name
-//		of the command) -- ex: "nachos -d +" -> argc = 3 
+//		of the command) -- ex: "nachos -d +" -> argc = 3
 //	"argv" is an array of strings, one for each command line argument
 //		ex: "nachos -d +" -> argv = {"nachos", "-d", "+"}
 //----------------------------------------------------------------------
@@ -181,13 +181,16 @@ main(int argc, char **argv)
     int i;
     char *debugArg = "";
     char *userProgName = NULL;        // default is not to execute a user prog
+    char *threadTroubleT = NULL;
+    char *threadTroubleN = NULL;
     bool threadTestFlag = false;
+    bool threadTroubleFlag = false;
     bool consoleTestFlag = false;
     bool networkTestFlag = false;
 #ifndef FILESYS_STUB
     char *copyUnixFileName = NULL;    // UNIX file to be copied into Nachos
     char *copyNachosFileName = NULL;  // name of copied file in Nachos
-    char *printFileName = NULL; 
+    char *printFileName = NULL;
     char *removeFileName = NULL;
     bool dirListFlag = false;
     bool dumpFlag = false;
@@ -213,12 +216,22 @@ main(int argc, char **argv)
 	else if (strcmp(argv[i], "-K") == 0) {
 	    threadTestFlag = TRUE;
 	}
+
+    else if (strcmp(argv[i], "-tt") == 0) {
+	    //command flag for thread trouble test
+	    threadTroubleFlag = TRUE;
+	    ASSERT(i + 2 < argc);
+	    threadTroubleT = argv[i + 1];
+	    threadTroubleN = argv[i + 2];
+	}
+
 	else if (strcmp(argv[i], "-C") == 0) {
 	    consoleTestFlag = TRUE;
 	}
 	else if (strcmp(argv[i], "-N") == 0) {
 	    networkTestFlag = TRUE;
 	}
+
 #ifndef FILESYS_STUB
 	else if (strcmp(argv[i], "-cp") == 0) {
 	    ASSERT(i + 2 < argc);
@@ -242,11 +255,12 @@ main(int argc, char **argv)
 	else if (strcmp(argv[i], "-D") == 0) {
 	    dumpFlag = true;
 	}
+
 #endif //FILESYS_STUB
 	else if (strcmp(argv[i], "-u") == 0) {
             cout << "Partial usage: nachos [-z -d debugFlags]\n";
             cout << "Partial usage: nachos [-x programName]\n";
-	    cout << "Partial usage: nachos [-K] [-C] [-N]\n";
+            cout << "Partial usage: nachos [-K] [-C] [-N]\n";
 #ifndef FILESYS_STUB
             cout << "Partial usage: nachos [-cp UnixFile NachosFile]\n";
             cout << "Partial usage: nachos [-p fileName] [-r fileName]\n";
@@ -256,15 +270,15 @@ main(int argc, char **argv)
 
     }
     debug = new Debug(debugArg);
-    
+
     DEBUG(dbgThread, "Entering main");
 
 #ifdef TUT
     ::tut::callback * clbk = new tut::reporter(cout);
-    ::tut::runner.get().set_callback(clbk);  
+    ::tut::runner.get().set_callback(clbk);
     ::tut::runner.get().run_tests(); //run all unit tests
-#endif 
-    
+#endif
+
     kernel = new Kernel(argc, argv);
 
     kernel->Initialize();
@@ -275,6 +289,9 @@ main(int argc, char **argv)
     // run some tests, if requested
     if (threadTestFlag) {
       kernel->ThreadSelfTest();  // test threads and synchronization
+    }
+    if (threadTroubleFlag){
+      ThreadTroubleTest(threadTroubleT, threadTroubleN);
     }
     if (consoleTestFlag) {
       kernel->ConsoleTest();   // interactive test of the synchronized console
@@ -316,7 +333,7 @@ main(int argc, char **argv)
     // Instead, call Halt, which will first clean up, then
     //  terminate.
     kernel->interrupt->Halt();
-    
+
     ASSERTNOTREACHED();
 }
 
